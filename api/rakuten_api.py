@@ -22,28 +22,31 @@ env_path = get_env_path()
 load_dotenv(dotenv_path = env_path)
 
 ###################################################
-# -----------------------
-# 楽天APIクラス
-# 1つ目のフロー：APIへ接続 → キーワード検索
-# -----------------------
+
 class RakutenAPI:
     def __init__(self):
         #logger
         self.logger_setup = SimpleLogger()
         self.logger = self.logger_setup.get_logger()
-        
+    
+    # -----------------------
+    # 1つ目のフロー   
+    # 楽天APIにリクエストを送信し、
+    # キーワード検索結果（商品データ）を取得する処理
+    # -----------------------   
     #①楽天APIで商品検索を行う
     #型ヒントNoneの場合もあるため追加
     def search(self, product_name: str, page: int = 1) -> dict| None:
         self.logger.info(f"楽天API検索を開始します:{product_name}")
         
         #APIエンドポイント
-        url = "https://app.rakuten.co.jp/services/api/IchibaItem/Search/20170706"
+        url = "https://openapi.rakuten.co.jp/ichibams/api/IchibaItem/Search/20220601"
         
         #リクエストパラメーターを渡す(何をお願いするか)
         #applicationID:楽天が決めている
         params = {
             "applicationId":os.getenv("RAKUTEN_API_ID"), #APIキー
+            "accessKey":os.getenv("RAKUTEN_ACCESS_KEY"),
             "keyword": product_name,                   #検索ワード
             "format":"json",
             "hits": 30,                                #取得件数(1回で最大30)
@@ -68,13 +71,52 @@ class RakutenAPI:
             self.logger.error(f"通信 or HTTPエラー:{e}")
             return None
         
+    # -----------------------
+    # 2つ目のフロー
+    # 楽天APIのレスポンスから必要な商品情報だけを抽出する
+    # -----------------------
+    def format_product_data(self,api_data: dict)-> list[dict]:
+        #商品情報を入れる空リスト
+        product_data_list:list[dict] = []
+        
+        #「Items」を1件ずつループ処理
+        #Itemがあればそれを使うが、なければ空リスト .get("Items", [])意味はなくてもOK
+        for raw_item in api_data.get("Item",[]):
+            #１つの商品のデータを取り出している
+            product = raw_item["Item"]
+            
+            #必要な情報だけ辞書としてまとめる
+            product_data = {
+                #商品名
+                "name": product["itemName"],
+                #商品価格
+                "price": product["itemPrice"],
+                #商品ページURL
+                "url": product["itemUrl"],
+                #ショップ名
+                "shop": product["shopName"],
+                #平均レビュー（ない場合は０）
+                "review_avg": product.get("reviewAverage", 0),
+                #review件数（ない場合は０）
+                "review_count": product.get("reviewCount", 0),
+            }
+            #リストに追加する
+            product_data_list.append(product_data)
+        
+        return product_data_list 
+        
+        
+        
+        
 
 #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 #実行してみる
 if __name__ == "__main__":
     #インスタンス作成
     api = RakutenAPI()
-    #テスト検索
+    #-----------
+    #1つ目のフロー
+    #-----------
     result = api.search("杜のすっぽん黒酢", page=1)
     
     if result:
@@ -86,5 +128,16 @@ if __name__ == "__main__":
         
         if items:
             print(items[0])
+    
+            #-----------
+            #2つ目のフロー
+            #-----------
+            formatted_data = api.format_product_data(result)
+            print(f"整形後の件数:{len(formatted_data)}")
+            if formatted_data:
+                print("▼整形後データ（1件目）")
+                print(formatted_data[0])
         else:
-            print("取得失敗")
+            print("整形データがありません")
+    
+    
