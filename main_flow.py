@@ -4,6 +4,7 @@
 
 #楽天APIで検索
 #②api/rakuten_api.py
+#for pageで回す（ページ制御）
 
 #店舗・価格・URL抽出
 #③price_tools/price_list_builder.py
