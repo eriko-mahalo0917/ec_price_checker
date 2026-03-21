@@ -1,0 +1,127 @@
+
+
+````markdown
+# rakuten_api.py メモ
+
+## ■ 実装目的
+
+楽天API（商品検索API）を利用して商品検索を行い、
+商品名・価格・店舗・URL・レビュー情報を取得する
+
+---
+
+## ■ 躓いたポイントと解決
+
+### ① sysが未定義エラー
+
+【エラー】
+NameError: name 'sys' is not defined
+
+【原因】
+sysをimportしていなかった
+
+【対応】
+import sys を追加
+
+---
+
+### ② dotenvがimportできない
+
+【エラー】
+ModuleNotFoundError: No module named 'dotenv'
+
+【原因】
+python-dotenvが未インストール
+
+【対応】
+pip install python-dotenv
+
+---
+
+### ③ 401エラー（認証エラー）
+
+【原因】
+.envの環境変数名が不一致
+（RAKUTEN_API_ID と RAKUTEN_APP_ID のズレ）
+
+【対応】
+.envとコードの変数名を統一
+
+---
+
+### ④ 400エラー（リクエスト不正）※重要
+
+【原因】
+以下の複合要因
+
+・楽天APIのエンドポイントURLが変更されていた  
+・アクセスキー（accessKey）が必須になっていた  
+・パラメータ不足によりリクエスト不正となっていた  
+
+【対応】
+・最新のAPI仕様に合わせてURLを修正  
+・applicationId に加えて accessKey を追加  
+・パラメータを正しく設定  
+
+```python
+params = {
+    "applicationId": os.getenv("RAKUTEN_API_ID"),
+    "accessKey": os.getenv("RAKUTEN_ACCESS_KEY"),
+    "keyword": product_name,
+    "format": "json",
+    "hits": 30,
+    "page": page
+}
+````
+
+---
+
+### ⑤ IPアドレスによるエラー
+
+【原因】
+テザリング環境で実行していたため、
+楽天API側で制限または異常リクエストと判断された可能性
+
+【対応】
+通常のネットワーク環境で実行したところ正常動作
+
+---
+
+## ■ 学び
+
+・APIは「認証情報（applicationId / accessKey）」に強く依存する
+・API仕様（URL・必須パラメータ）は変更される可能性がある
+・400エラーは「パラメータ不備」の可能性が高い
+・401エラーは「認証情報ミス」の可能性が高い
+・環境（IP・ネットワーク）もエラー原因になる
+・ログ出力やprintでの確認が重要
+・API仕様変更により既存コードが動作しなくなる可能性があるため、定期的な仕様確認が必要
+
+---
+
+## ■ 今後やること
+
+・Itemsから必要データを抽出（product_data_list作成）
+・レビュー情報を含めたデータ整形
+・CSV出力
+・価格比較ロジック実装
+・ソート（レビュー × 件数など）
+
+
+
+##APIで取得したJSON形式の中身はこうなっている
+例：
+api_data = {
+    "Items": [
+        {
+            "Item": {
+                "itemName": "りんご",
+                "itemPrice": 100,
+                "itemUrl": "https://example.com",
+                "shopName": "フルーツ店",
+                "reviewAverage": 4.5,
+                "reviewCount": 120
+            }
+        }
+    ]
+}
