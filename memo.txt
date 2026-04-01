@@ -101,9 +101,9 @@ params = {
 
 ## ■ 今後やること
 
-・Itemsから必要データを抽出（product_data_list作成）
-・レビュー情報を含めたデータ整形
-・CSV出力
+・Itemsから必要データを抽出（product_data_list作成）　→ 完了
+・レビュー情報を含めたデータ整形　→ 完了
+・CSV出力　→ 完了
 ・価格比較ロジック実装
 ・ソート（レビュー × 件数など）
 
@@ -177,3 +177,171 @@ filtered_list = [
 * **`for keyword in EXCLUDE_KEYWORDS`**
     * **役割**: NGワードの「巡回」
     * **解説**: 設定ファイルにある複数のNGワード（中古、訳あり等）を、1つずつ順番にスキャンして試します。
+
+---
+
+# csv_saver.py メモ (2026-04-01 実装)
+
+## ■ 実装目的
+検索結果（サマリー＋商品一覧）をCSVファイルとして `data/` フォルダに保存する。
+
+---
+
+## ■ 設計のこだわり
+
+### ① ヘッダーを config.py で一元管理
+CSV のヘッダー文字列をコード内に直書きせず、`config.py` の定数から取得している。
+ヘッダーを変えたいときは `config.py` 1か所だけ修正すればよい。
+
+### ② 重複ファイルに連番を付ける
+同日・同キーワードで複数回実行したときに上書きしないよう、
+既存ファイルが存在する場合は `_2`, `_3` と連番を付ける。
+
+```python
+while os.path.exists(os.path.join(data_dir, filename)):
+    filename = f"{base}_{count}.csv"
+    count += 1
+```
+
+### ③ encoding="utf-8-sig" で Excel 対応
+通常の `utf-8` だと Excel で開いたときに日本語が文字化けする。
+`utf-8-sig` にすることで BOM（バイト順マーク）が付き、Excel が日本語と認識できる。
+
+---
+
+## ■ 躓いたポイント・学び
+
+### SimpleLogger のインスタンス化忘れ
+
+【エラー】
+```
+TypeError: get_logger() missing 1 required positional argument: 'self'
+```
+
+【原因】
+`self.logger_setup = SimpleLogger` → クラスそのものを代入していた（`()` 忘れ）
+
+【対応】
+`self.logger_setup = SimpleLogger()` → インスタンスを作成する
+
+クラスとインスタンスの違い：
+- `SimpleLogger` はクラス（設計図）
+- `SimpleLogger()` はインスタンス（設計図から作った実物）
+- メソッドを呼ぶには実物（インスタンス）が必要
+
+---
+
+# popup.py メモ (2026-04-01 実装)
+
+## ■ 実装目的
+`input()` によるターミナル入力をGUIのダイアログに置き換え、
+exeファイルとして配布したときにも使いやすいUIを提供する。
+
+---
+
+## ■ tkinter とは
+Python 標準ライブラリの GUI ツールキット。
+追加インストール不要で、Windows / Mac / Linux で動作する。
+PyInstaller での exe 化にもそのまま対応できる。
+
+---
+
+## ■ 設計のこだわり
+
+### ① メインウィンドウを非表示にする
+`root.withdraw()` でメインウィンドウを隠し、ダイアログだけを表示している。
+これをしないと空のウィンドウが余計に開いてしまう。
+
+### ② `grab_set()` でモーダルダイアログにする
+`dialog.grab_set()` により、ダイアログが閉じるまで他の操作をブロックする。
+入力→OK の流れを確実に踏ませるための設定。
+
+### ③ キャンセルは ValueError を送出
+キャンセル・×ボタン時は `ValueError` を送出し、`main_flow.py` 側でまとめて
+エラーハンドリングできるようにしている。
+
+---
+
+# path_helper.py メモ（exe 対応）
+
+## ■ 実装目的
+`python main.py` での実行と、PyInstaller で作成した exe ファイルからの実行の
+両方に対応したパス解決を行う。
+
+---
+
+## ■ なぜ必要か
+exe ファイルは一時フォルダに展開されて実行されるため、
+`__file__` でのパス解決が正しく動作しない場合がある。
+exe かどうかを判定して適切なルートパスを返す必要がある。
+
+---
+
+## ■ 仕組み
+
+```python
+if getattr(sys, 'frozen', False):
+    return Path(sys.executable).parent  # exe 実行時 → exe と同じフォルダ
+else:
+    return Path(__file__).parents[1]    # python 実行時 → プロジェクトルート
+```
+
+- `sys.frozen` は PyInstaller が exe 化したときだけ `True` になる属性
+- `getattr(obj, name, default)` は属性が存在しない場合にデフォルト値を返す安全な取得方法
+- exe 実行時は `sys.executable`（exe ファイル自身のパス）の親フォルダを返す
+
+---
+
+## ■ 学び
+・`__file__` は「このファイルの場所」を返すが、exe 化すると一時フォルダを指してしまう
+・`sys.frozen` を使うことで実行環境（Python / exe）を判定できる
+・パス解決はプロジェクトの1か所に集約しておくと、変更時の修正が楽になる
+
+---
+
+# PyInstaller メモ（exe 化）
+
+## ■ よく使うオプション
+
+| オプション | 意味 |
+|-----------|------|
+| `--onefile` | 全てを1つの実行ファイルにまとめる |
+| `--onedir` | 実行ファイル＋依存ファイルをフォルダにまとめる |
+| `--windowed` | ターミナル（黒い画面）を表示しない（GUI アプリ向け） |
+| `--name` | 出力ファイル名を指定 |
+| `--clean` | ビルドキャッシュをクリアしてからビルド |
+| `-y` | 出力先フォルダが存在してもエラーを出さず上書き |
+
+## ■ .env の扱い方
+
+`--add-data` で exe 内に .env を同梱する方法もあるが、
+APIキーが exe に焼き込まれてしまうためセキュリティ上好ましくない。
+
+今回の設計：
+- exe と同じフォルダに `.env` を別ファイルとして置く
+- `path_helper.py` が `sys.executable` の隣を参照するため自動で読み込まれる
+- 納品時はダミーの `.env` を渡し、受け取り側が自分のキーを記入する
+
+## ■ macOS での注意
+`--onefile` + `--windowed` の組み合わせは macOS では非推奨（v7.0 でエラー予定）。
+macOS で GUI アプリを配布するには `--onedir` が推奨。
+
+---
+
+# Python バージョン互換性メモ
+
+## ■ 型ヒントの書き方（3.9 と 3.10 以降の違い）
+
+Python 3.10 以降は `|` 演算子で Union 型を書ける。
+3.9 以前は `typing` モジュールの `Optional` や `Union` を使う必要がある。
+
+```python
+# Python 3.10 以降
+def search(...) -> dict | None:
+
+# Python 3.9 以前（このプロジェクトで採用）
+from typing import Optional
+def search(...) -> Optional[dict]:
+```
+
+`Optional[dict]` は `Union[dict, None]`（dict か None のどちらか）と同じ意味。

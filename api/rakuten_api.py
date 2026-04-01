@@ -1,6 +1,7 @@
 ##################################################
 #APIリクエストをするため
 import requests
+from typing import Optional
 #環境変数を使うための上旬ライブラリ
 import os
 import sys
@@ -36,7 +37,7 @@ class RakutenAPI:
     # -----------------------   
     #①楽天APIで商品検索を行う
     #型ヒントNoneの場合もあるため追加
-    def search(self, product_name: str, page: int = 1) -> dict| None:
+    def search(self, product_name: str, page: int = 1) -> Optional[dict]:
         self.logger.info(f"楽天API検索を開始します:{product_name}")
         
         #APIエンドポイント
@@ -81,7 +82,7 @@ class RakutenAPI:
         
         #「Items」を1件ずつループ処理
         #Itemがあればそれを使うが、なければ空リスト .get("Items", [])意味はなくてもOK
-        for raw_item in api_data.get("Item",[]):
+        for raw_item in api_data.get("Items",[]):
             #１つの商品のデータを取り出している
             product = raw_item["Item"]
             
@@ -97,7 +98,7 @@ class RakutenAPI:
                 "shop": product["shopName"],
                 #平均レビュー（ない場合は０）
                 "review_avg": product.get("reviewAverage", 0),
-                #review件数（ない場合は０）
+                #レビュー件数（ない場合は０）
                 "review_count": product.get("reviewCount", 0),
             }
             #リストに追加する
@@ -108,7 +109,7 @@ class RakutenAPI:
         
         
         
-
+"""
 #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 #実行してみる
 if __name__ == "__main__":
@@ -140,4 +141,4 @@ if __name__ == "__main__":
         else:
             print("整形データがありません")
     
-    
+"""

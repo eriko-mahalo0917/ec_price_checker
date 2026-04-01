@@ -49,7 +49,7 @@ class PriceListBuilder:
         
         return filtered_list
         
-    
+
     # -----------------------
     # ３つ目のフロー
     # 価格順に並び替える
@@ -64,7 +64,8 @@ class PriceListBuilder:
         self.logger.info("商品を価格順へ並び替えました")
         
         return sorted_list
-
+    
+"""
     # -----------------------
     # 4つ目のフロー
     # 最安値などの統計を計算する
@@ -147,3 +148,4 @@ if __name__ == "__main__":
     for p in final_result["products"]:
         #読みやすくしている
         print(f"- {p['price']}円: {p['name']}")
+"""
