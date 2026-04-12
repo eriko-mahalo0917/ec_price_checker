@@ -131,7 +131,7 @@ class MainFlow:
     # -----------------------
     # 全体を通して実行するメソッド
     # -----------------------
-    def run(self) -> None:
+    def run_price_check(self) -> None:
         try:
             # ① キーワード入力
             display_keyword, api_keyword = self.input_keywords()
